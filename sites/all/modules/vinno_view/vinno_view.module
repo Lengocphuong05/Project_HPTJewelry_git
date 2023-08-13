@@ -1,0 +1,81 @@
+<?php
+
+/**
+ * Implements hook_views_pre_render().
+ */
+function vinno_view_views_pre_render($view) {
+    global $base_url;
+	global $user;
+	$acc = user_load($user->uid);
+	$roles = array_keys($acc->roles);
+    if($view->name == 'trang_suc_kim_cuong'){
+        $view->style_plugin->render_fields($view->result);
+			//if ($view->current_display == 'page'){
+				foreach ($view->style_plugin->rendered_fields as $index => & $rs) {
+                    $nid_danhmuc = $rs['field_sanphamnew_ten'];
+                    $nid_sanpham = $rs['nid'];
+                    
+                    $html_giamgia = "";
+                    $node_sanpham = node_load($nid_sanpham);
+                    $gia_tien = isset($node_sanpham->field_sanphamnew_cost['und'][0]['value']) ? $node_sanpham->field_sanphamnew_cost['und'][0]['value']:'';
+                    $giam_gia = isset($node_sanpham->field_sanphamnew_giamgia['und'][0]['value']) ? $node_sanpham->field_sanphamnew_giamgia['und'][0]['value']:'';
+                    // Kiểm tra nếu $gia_tien có giá trị
+                    if (!empty($gia_tien)) {
+                        // Chuyển đổi chuỗi thành số để tính toán
+                        $gia_tien = floatval($gia_tien);
+
+                        // Kiểm tra nếu $giam_gia có giá trị
+                        if (!empty($giam_gia)) {
+                            // Chuyển đổi giá trị của $giam_gia từ chuỗi thành số
+                            $giam_gia = floatval($giam_gia);
+
+                            // Tính giá mới nếu có giảm giá
+                            $real_giatien = $gia_tien - (($gia_tien * $giam_gia) / 100);
+                        } else {
+                            // Không có giảm giá, giá mới bằng giá gốc
+                            $real_giatien = $gia_tien;
+                        }
+
+                        // Định dạng giá mới theo ý muốn, ví dụ:
+                        // $real_giatien_formatted = number_format($real_giatien, 2); // Định dạng với 2 chữ số sau dấu phẩy
+                    } else {
+                        // Không có giá gốc, xử lý tùy ý
+                        $real_giatien = 0; // Hoặc giá trị mặc định khác
+                    }
+                    if($giam_gia){
+                        $html_giamgia = "<span class='sale-flash'>".$giam_gia."%</span>";
+                    }
+                    $node_danhmuc = node_load($nid_danhmuc);
+                    $fid = isset($node_danhmuc->field_sanpham_img['und'][0]['uri']) ? $node_danhmuc->field_sanpham_img['und'][0]['uri']:'';
+                    if($fid){
+                        $filename = file_create_url($fid);
+                    }
+                    $tensanpham = isset($node_danhmuc->title) ? $node_danhmuc->title:'';
+                    $rs['nothing'] = "
+                    <li>
+                    <div class='product-item'>
+                    <div class='product-top'>
+                        <a href=".$base_url.'/node/'.$nid_sanpham." class='product-thumb'>
+                            <img src=".$filename." alt=''>
+                            ".$html_giamgia."
+                        </a>
+                        <a href='' class='buy-now'>Mua ngay</a>
+    
+                    </div>
+                    <div class='product-info'>
+                        <a href=' class='product-cat'>TSDM</a>
+                        <a href='chitietDM.html' class='product-name'>".$tensanpham."</a>
+                        <div class='product-price'>
+                            <span class ='product-price-old'>".$gia_tien."</span> 
+                            <span class='product-price-discount'>".$real_giatien."</span>
+                        </div>
+                    </div>
+
+                </div>
+                </li>"
+                ;
+
+				}
+			//}
+    }
+}
