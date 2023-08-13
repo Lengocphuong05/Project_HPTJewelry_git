@@ -1,0 +1,6 @@
+name = Vinno module
+description = Vinno module
+package = Vinno
+version = "7.x-1.x-dev"
+core = 7.x
+dependencies[] = block
