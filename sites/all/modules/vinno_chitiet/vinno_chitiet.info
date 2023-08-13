@@ -1,0 +1,5 @@
+name = Vinno Chi Tiet
+description = Vinno chi tiet
+package = Vinno
+version = "7.x-1.x-dev"
+core = 7.x
