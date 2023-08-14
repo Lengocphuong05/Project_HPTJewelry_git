@@ -73,3 +73,156 @@ function vinno_chitiet_node_view($node, $view_mode, $langcode) {
   $node->content['field_sanphamnew_show'][0]['#markup'] = $html;
     }
 }
+function vinno_chitiet_menu() {
+	$items = array();
+	$items['them-vao-gio-hang/%'] = array(
+		'title' => '',
+		'page callback' => 'vinno_chitiet_giohang',
+		'page arguments' => array(1),
+	  'access callback'=>array('user_is_logged_in'),
+	  'access arguments' => array('access content'),
+	  'type' => MENU_CALLBACK,
+	);
+  $items['mua-san-pham/%'] = array(
+		'title' => '',
+		'page callback' => 'vinno_muasanpham',
+		'page arguments' => array(1),
+	  'access callback'=>array('user_is_logged_in'),
+	  'access arguments' => array('access content'),
+	  'type' => MENU_CALLBACK,
+	);
+	return $items;
+}
+function vinno_chitiet_giohang($nid){
+  global $base_url;
+  global $user;
+	$uid = $user->uid;
+	if($nid){
+    $node_sanpham = node_load($nid);
+    $tensanpham = $node_sanpham->title;
+    $node = new stdClass();
+    $node->type = "giohang";
+    $node->title = $tensanpham;
+    $node->language = 'vi';
+    $node->uid = $uid;
+    $node->field_giohang_sanpham['und'][0]['nid'] = $nid;
+    $node->field_giohang_user['und'][0]['uid'] = $uid;
+    $node->field_giohang_loai['und'][0]['value'] = 2;
+    node_save($node);
+    drupal_goto($base_url.'/node/'.$nid);
+    drupal_set_message($message = 'Bạn đã thêm vào giỏ hàng.', $type = 'status', $repeat = false);
+
+  }
+}
+function vinno_muasanpham($nid){
+  global $base_url;
+  
+  drupal_goto($base_url.'/node/add/mua-h-ng/');
+}
+function count_giohang($uid){
+	$sql = "SELECT node.created AS node_created, node.nid AS nid
+  FROM 
+  {node} node
+  LEFT JOIN {field_data_field_giohang_user} field_data_field_giohang_user ON node.nid = field_data_field_giohang_user.entity_id AND (field_data_field_giohang_user.entity_type = 'node' AND field_data_field_giohang_user.deleted = '0')
+  INNER JOIN {field_data_field_giohang_loai} field_data_field_giohang_loai ON node.nid = field_data_field_giohang_loai.entity_id AND (field_data_field_giohang_loai.entity_type = 'node' AND field_data_field_giohang_loai.deleted = '0')
+  WHERE (( (node.status = '1') AND (node.type IN  ('giohang')) AND (field_data_field_giohang_user.field_giohang_user_uid IN  (:uid)) AND (field_data_field_giohang_loai.field_giohang_loai_value = '2') ))";
+	$rs = db_query($sql,array(':uid'=>$uid))->fetchAll();
+  $arr = array();
+  if($rs) {
+		foreach($rs as $value) {
+			$arr[] = $value->nid;
+		}
+    return count($arr);
+	}
+  else{
+    return 0;
+  }
+}
+
+function get_nid_giohang($uid){
+	$sql = "SELECT node.title AS node_title, node.nid AS nid, node_field_data_field_giohang_sanpham.nid AS node_field_data_field_giohang_sanpham_nid, node.created AS node_created, 'node' AS field_data_field_giohang_sanpham_node_entity_type, 'node' AS field_data_field_sanphamnew_cost_node_entity_type
+  FROM 
+  {node} node
+  LEFT JOIN {field_data_field_giohang_sanpham} field_data_field_giohang_sanpham ON node.nid = field_data_field_giohang_sanpham.entity_id AND (field_data_field_giohang_sanpham.entity_type = 'node' AND field_data_field_giohang_sanpham.deleted = '0')
+  LEFT JOIN {node} node_field_data_field_giohang_sanpham ON field_data_field_giohang_sanpham.field_giohang_sanpham_nid = node_field_data_field_giohang_sanpham.nid
+  INNER JOIN {field_data_field_giohang_loai} field_data_field_giohang_loai ON node.nid = field_data_field_giohang_loai.entity_id AND (field_data_field_giohang_loai.entity_type = 'node' AND field_data_field_giohang_loai.deleted = '0')
+  LEFT JOIN {field_data_field_giohang_user} field_data_field_giohang_user ON node.nid = field_data_field_giohang_user.entity_id AND (field_data_field_giohang_user.entity_type = 'node' AND field_data_field_giohang_user.deleted = '0')
+  WHERE (( (field_data_field_giohang_user.field_giohang_user_uid = :uid ) )AND(( (node.status = '1') AND (node.type IN  ('giohang')) AND (field_data_field_giohang_loai.field_giohang_loai_value = '2') )))";
+	$rs = db_query($sql,array(':uid'=>$uid))->fetchAll();
+  $arr = array();
+  if($rs) {
+		foreach($rs as $value) {
+			$arr[] = $value->nid;
+		}
+    return $arr;
+	}
+}
+function vinno_chitiet_node_prepare($node) {
+  global $user;
+	if($node->type == 'mua_h_ng'){
+    $arr_nidgiohang = get_nid_giohang($user->uid);
+    $node->title = 'Đặt hàng';
+    $arr_giatien = array();
+    foreach($arr_nidgiohang as $key=>$value){
+      $node_giohang = node_load($value);
+      $nid_sanpham = $node_giohang->field_giohang_sanpham['und'][0]['nid'];
+      $node->field_muahang_sanpham['und'][$key]['nid'] = $nid_sanpham;
+      $node->field_muahang_giohang['und'][$key]['nid'] = $value;
+      $node_sanpham = node_load($nid_sanpham);
+      $gia_tien = isset($node_sanpham->field_sanphamnew_cost['und'][0]['value']) ? $node_sanpham->field_sanphamnew_cost['und'][0]['value']:'';
+      $giam_gia = isset($node_sanpham->field_sanphamnew_giamgia['und'][0]['value']) ? $node_sanpham->field_sanphamnew_giamgia['und'][0]['value']:'';
+      if (!empty($gia_tien)) {
+          // Chuyển đổi chuỗi thành số để tính toán
+          $gia_tien = floatval($gia_tien);
+  
+          // Kiểm tra nếu $giam_gia có giá trị
+          if (!empty($giam_gia)) {
+              // Chuyển đổi giá trị của $giam_gia từ chuỗi thành số
+              $giam_gia = floatval($giam_gia);
+  
+              // Tính giá mới nếu có giảm giá
+              $real_giatien = $gia_tien - (($gia_tien * $giam_gia) / 100);
+          } else {
+              // Không có giảm giá, giá mới bằng giá gốc
+              $real_giatien = $gia_tien;
+          }
+  
+          // Định dạng giá mới theo ý muốn, ví dụ:
+          // $real_giatien_formatted = number_format($real_giatien, 2); // Định dạng với 2 chữ số sau dấu phẩy
+      } else {
+          // Không có giá gốc, xử lý tùy ý
+          $real_giatien = 0; // Hoặc giá trị mặc định khác
+      }
+      $arr_giatien[] = $real_giatien;
+    }
+    $sum = 0;
+    foreach ($arr_giatien as $number) {
+      $sum += $number;
+    }
+    $node->field_muahang_giatien['und'][0]['value']=$sum;
+  }
+}
+/**
+ * Implements hook_node_insert().
+ */
+function vinno_chitiet_node_insert($node) {
+  if($node->type == 'mua_h_ng'){
+    $node_giohang = $node->field_muahang_giohang['und'];
+    $newData = array();
+    foreach ($node_giohang as $key => $value) {
+        $newData[$key] = $value["nid"];
+    }
+    foreach ($newData as $key => $value) {
+      $node_giohang = node_load($value);
+      $node_giohang->field_giohang_loai['und'][0]['value'] = 1;
+			field_attach_update('node', $node_giohang);
+    }
+  }
+}
+function vinno_chitiet_user_insert(&$edit, $account, $category) {
+  global $user;
+	$acc = user_load($user->uid);
+  if($user->uid == 1 || $acc->roles[4] == 4){
+    $account->roles[5] = 5;
+  }
+}
